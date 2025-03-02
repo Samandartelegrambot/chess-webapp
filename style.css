@@ -1,72 +1,200 @@
 body {
     margin: 0;
     padding: 0;
-    font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
+    font-family: 'Arial', sans-serif;
+    background-color: #e6f0ff;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    overflow: hidden;
 }
 
 .container {
-    text-align: center;
-    padding: 20px;
     background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    max-width: 100%;
-    width: 400px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 900px;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-h1 {
+.header {
+    padding: 15px;
+    background: #007bff;
+    color: white;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+}
+
+.header h1 {
+    margin: 0;
     font-size: 24px;
-    color: #333;
-    margin-bottom: 20px;
 }
 
-.chessboard {
-    margin: 0 auto;
+.user-info {
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.game-area {
+    display: flex;
+    flex: 1;
+    padding: 20px;
+}
+
+#chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 50px);
+    grid-template-rows: repeat(8, 50px);
+    gap: 1px;
+    background: #999;
     width: 100%;
     max-width: 400px;
+    margin: 0 auto;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.controls {
-    margin-top: 20px;
+.cell {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 30px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
 }
 
-button {
-    padding: 10px 20px;
-    margin: 0 5px;
+.cell.black {
+    background-color: #b58863;
+}
+
+.cell.white {
+    background-color: #f0d9b5;
+}
+
+.cell.draggable {
+    cursor: grab;
+}
+
+.cell.draggable:hover {
+    background-color: #e0e0e0;
+    transform: scale(1.05);
+}
+
+.cell.highlight {
+    background-color: #90ee90 !important; /* Yashil rang bilan ta'kidlanadi */
+}
+
+.piece {
+    user-select: none;
+    transition: transform 0.3s;
+}
+
+.piece:hover {
+    transform: scale(1.1);
+}
+
+.sidebar {
+    flex: 1;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.timer {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.status, .move-history {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    font-size: 16px;
+}
+
+.move-history {
+    overflow-y: auto;
+    max-height: 200px;
+    font-size: 14px;
+}
+
+.controls button {
+    padding: 12px 20px;
+    margin: 5px;
     background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, transform 0.2s;
+    font-size: 14px;
 }
 
-button:hover {
+.controls button:hover {
     background-color: #0056b3;
+    transform: scale(1.05);
 }
 
-.status {
-    margin-top: 15px;
-    font-size: 16px;
-    color: #555;
-}
-
-/* Mobil qurilmalar uchun moslashuvchanlik */
-@media (max-width: 500px) {
+@media (max-width: 768px) {
     .container {
         width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .game-area {
+        flex-direction: column;
         padding: 10px;
     }
-    .chessboard {
-        width: 100%;
+    #chessboard {
+        max-width: 100%;
     }
-    button {
-        padding: 8px 15px;
+    .sidebar {
+        padding-left: 0;
+        margin-top: 20px;
+    }
+    .controls button {
+        width: 100%;
+        margin: 5px 0;
+    }
+    .cell {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+    }
+    .timer, .status, .move-history {
         font-size: 14px;
     }
+}
+
+/* Animatsiyalar */
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#chessboard, .sidebar {
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes moveAnimation {
+    from { transform: translate(0, 0); }
+    to { transform: translate(calc(50px * (toCol - fromCol)), calc(50px * (toRow - fromRow))); }
+}
+
+.piece.moving {
+    animation: moveAnimation 0.5s ease-out forwards;
 }
