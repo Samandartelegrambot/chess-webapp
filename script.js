@@ -11,7 +11,12 @@ let game = {
     moveHistory: [],
     whiteTime: 600, // 10 daqiqa (soniyalarda)
     blackTime: 600,
-    timerInterval: null
+    timerInterval: null,
+    castlingRights: { // Rokirovka huquqlari
+        w: { king: true, queen: true },
+        b: { king: true, queen: true }
+    },
+    enPassantTarget: null // En passant uchun maqsad pozitsiyasi
 };
 
 const pieces = {
@@ -66,6 +71,7 @@ let draggedFrom = null;
 function dragStart(e) {
     draggedPiece = e.target.textContent;
     draggedFrom = { row: e.target.parentElement.dataset.row, col: e.target.parentElement.dataset.col };
+    e.target.style.opacity = '0.5'; // Tortayotganda figurani yarim shaffof qilish
     e.dataTransfer.setData('text/plain', draggedPiece);
     highlightPossibleMoves(draggedFrom.row, draggedFrom.col);
 }
@@ -93,6 +99,8 @@ function drop(e) {
     removeHighlights();
     draggedPiece = null;
     draggedFrom = null;
+    const pieces = document.querySelectorAll('.piece');
+    pieces.forEach(piece => piece.style.opacity = '1'); // Tortishdan keyin normal holatga qaytarish
 }
 
 // Mumkin bo‘lgan yurishlarni ta'kidlash
@@ -123,11 +131,36 @@ function removeHighlights() {
 // Figura yurishi
 function movePiece(fromRow, fromCol, toRow, toCol) {
     const piece = game.board[fromRow][fromCol];
+    const move = { row: toRow, col: toCol };
+
+    // En passant tekshiruvi
+    if (piece.slice(1) === 'P' && game.enPassantTarget && toRow === game.enPassantTarget.row && toCol === game.enPassantTarget.col) {
+        game.board[toRow + (piece[0] === 'w' ? 1 : -1)][toCol] = null;
+    }
+
+    // Rokirovka
+    if (piece.slice(1) === 'K' && Math.abs(fromCol - toCol) === 2) {
+        if (toCol === 6) { // Kichik rokirovka
+            game.board[fromRow][5] = game.board[fromRow][7];
+            game.board[fromRow][7] = null;
+        } else if (toCol === 2) { // Katta rokirovka
+            game.board[fromRow][3] = game.board[fromRow][0];
+            game.board[fromRow][0] = null;
+        }
+        game.castlingRights[piece[0]] = { king: false, queen: false };
+    } else if (piece.slice(1) === 'R') {
+        if (fromCol === 0) game.castlingRights[piece[0]].queen = false;
+        if (fromCol === 7) game.castlingRights[piece[0]].king = false;
+    } else if (piece.slice(1) === 'K') {
+        game.castlingRights[piece[0]] = { king: false, queen: false };
+    }
+
     game.board[toRow][toCol] = piece;
     game.board[fromRow][fromCol] = null;
     game.currentTurn = game.currentTurn === 'w' ? 'b' : 'w';
     game.moveHistory.push(`${piece[0] === 'w' ? 'O' : 'Q'}${pieces[piece]} ${fromRow}${fromCol} -> ${toRow}${toCol}`);
-    
+    game.enPassantTarget = null; // En passant maqsadini tozalash
+
     // Animatsiya qo‘shish
     const fromCell = chessboard.children[fromRow * 8 + fromCol].querySelector('.piece');
     const toCell = chessboard.children[toRow * 8 + toCol];
@@ -144,7 +177,7 @@ function movePiece(fromRow, fromCol, toRow, toCol) {
 // Haqiqiy shaxmat qoidalarini tekshirish
 function getLegalMoves(row, col, piece) {
     const moves = [];
-    const color = piece[0]; // 'w' yoki 'b'
+    const color = piece[0];
 
     switch (piece.slice(1)) {
         case 'P': // Piyada
@@ -157,14 +190,19 @@ function getLegalMoves(row, col, piece) {
                 // Dastlabki qadamda ikki qadam
                 if (row === startRow && !game.board[row + direction * 2][col] && !game.board[row + direction][col]) {
                     moves.push({ row: row + direction * 2, col });
+                    game.enPassantTarget = { row: row + direction, col }; // En passant maqsadini belgilash
                 }
             }
             // Diagonal hujum (agar dushman figura bo‘lsa)
             [-1, 1].forEach(delta => {
                 if (col + delta >= 0 && col + delta < 8) {
-                    const target = game.board[row + direction][col + delta];
+                    const targetRow = row + direction;
+                    const targetCol = col + delta;
+                    const target = game.board[targetRow][targetCol];
                     if (target && target[0] !== color) {
-                        moves.push({ row: row + direction, col: col + delta });
+                        moves.push({ row: targetRow, col: targetCol });
+                    } else if (game.enPassantTarget && targetRow === game.enPassantTarget.row && targetCol === game.enPassantTarget.col) {
+                        moves.push({ row: targetRow, col: targetCol, enPassant: true });
                     }
                 }
             });
@@ -232,7 +270,6 @@ function getLegalMoves(row, col, piece) {
             break;
 
         case 'Q': // Qirolicha
-            // Fil va qal’a harakatlarini birlashtirish
             getLegalMoves(row, col, `${color}B`).forEach(move => moves.push(move));
             getLegalMoves(row, col, `${color}R`).forEach(move => moves.push(move));
             break;
@@ -248,7 +285,17 @@ function getLegalMoves(row, col, piece) {
                     }
                 }
             });
-            // Rokirovka (castling) qo‘shilishi mumkin, lekin bu komplexroq
+            // Rokirovka (castling)
+            if (game.castlingRights[color].king) {
+                // Kichik rokirovka (kingside)
+                if (!game.board[row][5] && !game.board[row][6] && game.board[row][7] === `${color}R` && game.castlingRights[color].king) {
+                    moves.push({ row, col: 6, castling: 'kingside' });
+                }
+                // Katta rokirovka (queenside)
+                if (!game.board[row][3] && !game.board[row][2] && !game.board[row][1] && game.board[row][0] === `${color}R` && game.castlingRights[color].queen) {
+                    moves.push({ row, col: 2, castling: 'queenside' });
+                }
+            }
             break;
     }
 
@@ -257,10 +304,21 @@ function getLegalMoves(row, col, piece) {
 
 function isValidMove(fromRow, fromCol, toRow, toCol) {
     const piece = game.board[fromRow][fromCol];
-    if (!piece || piece[0] !== game.currentTurn) return false;
+    if (!piece) {
+        status.textContent = "Hech qanday figura tanlanmagan!";
+        return false;
+    }
+    if (piece[0] !== game.currentTurn) {
+        status.textContent = "Hali sizning navbatingiz emas!";
+        return false;
+    }
 
     const moves = getLegalMoves(fromRow, fromCol, piece);
-    return moves.some(move => move.row === toRow && move.col === toCol);
+    if (!moves.some(move => move.row === toRow && move.col === toCol)) {
+        status.textContent = "Bu yurish qonuniy emas!";
+        return false;
+    }
+    return true;
 }
 
 // Vaqt hisoblagichi
@@ -271,6 +329,7 @@ function startTimer() {
             game.whiteTime--;
             if (game.whiteTime <= 0) {
                 endGame('Qora g‘alaba qozondi (vaqt tugadi)');
+                window.Telegram.WebApp.sendData(JSON.stringify({ action: 'game_over', message: 'Qora g‘alaba qozondi (vaqt tugadi)' }));
                 return;
             }
             whiteTimerEl.textContent = formatTime(game.whiteTime);
@@ -278,10 +337,12 @@ function startTimer() {
             game.blackTime--;
             if (game.blackTime <= 0) {
                 endGame('Oq g‘alaba qozondi (vaqt tugadi)');
+                window.Telegram.WebApp.sendData(JSON.stringify({ action: 'game_over', message: 'Oq g‘alaba qozondi (vaqt tugadi)' }));
                 return;
             }
             blackTimerEl.textContent = formatTime(game.blackTime);
         }
+        sendTimeToBot();
     }, 1000);
 }
 
@@ -333,7 +394,22 @@ function updateMoveHistory() {
 // Botga yurish yuborish
 function sendMoveToBot(from, to) {
     window.Telegram.WebApp.sendData(JSON.stringify({
-        move: { from: `${from.row}${from.col}`, to: `${to.row}${to.col}` }
+        move: { from: `${from.row}${from.col}`, to: `${to.row}${to.col}` },
+        time: {
+            white: game.whiteTime,
+            black: game.blackTime
+        }
+    }));
+}
+
+// Vaqtni botga yuborish
+function sendTimeToBot() {
+    window.Telegram.WebApp.sendData(JSON.stringify({
+        action: 'update_time',
+        time: {
+            white: game.whiteTime,
+            black: game.blackTime
+        }
     }));
 }
 
@@ -345,7 +421,9 @@ document.getElementById('newGameBtn').addEventListener('click', () => {
         moveHistory: [],
         whiteTime: 600,
         blackTime: 600,
-        timerInterval: null
+        timerInterval: null,
+        castlingRights: { w: { king: true, queen: true }, b: { king: true, queen: true } },
+        enPassantTarget: null
     };
     renderBoard();
     updateStatus();
@@ -366,12 +444,16 @@ document.getElementById('undoBtn').addEventListener('click', () => {
             moveHistory: game.moveHistory,
             whiteTime: game.whiteTime,
             blackTime: game.blackTime,
-            timerInterval: game.timerInterval
+            timerInterval: game.timerInterval,
+            castlingRights: { w: { king: true, queen: true }, b: { king: true, queen: true } },
+            enPassantTarget: null
         };
         renderBoard();
         updateStatus();
         updateMoveHistory();
         window.Telegram.WebApp.sendData(JSON.stringify({ action: 'undo' }));
+    } else {
+        status.textContent = "Orqaga qaytarish uchun hech qanday yurish yo‘q!";
     }
 });
 
@@ -385,20 +467,6 @@ document.getElementById('resignBtn').addEventListener('click', () => {
 // Telegram WebApp sozlash
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
-
-window.Telegram.WebApp.MainButton.setText('Yurishni tasdiqlash');
-window.Telegram.WebApp.MainButton.show();
-window.Telegram.WebApp.MainButton.onClick(() => {
-    const moves = game.moveHistory;
-    if (moves.length > 0) {
-        const lastMove = moves[moves.length - 1].match(/(\d)(\d)\s*->\s*(\d)(\d)/);
-        if (lastMove) {
-            window.Telegram.WebApp.sendData(JSON.stringify({
-                move: { from: `${lastMove[1]}${lastMove[2]}`, to: `${lastMove[3]}${lastMove[4]}` }
-            }));
-        }
-    }
-});
 
 // Foydalanuvchi nomini olish
 const username = window.Telegram.WebApp.initDataUnsafe?.user?.username || 'Mehmon';
