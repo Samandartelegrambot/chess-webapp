@@ -11,9 +11,9 @@ body {
 }
 
 .container {
-    background: white;
+    background: #f5f9ff;
     border-radius: 15px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
     width: 100%;
     max-width: 900px;
     height: 90vh;
@@ -24,7 +24,7 @@ body {
 
 .header {
     padding: 15px;
-    background: #007bff;
+    background: linear-gradient(45deg, #007bff, #0056b3);
     color: white;
     border-radius: 15px 15px 0 0;
     text-align: center;
@@ -88,16 +88,21 @@ body {
 }
 
 .cell.highlight {
-    background-color: #90ee90 !important; /* Yashil rang bilan ta'kidlanadi */
+    background-color: #90ee90 !important;
+    animation: highlightBlink 1s infinite;
 }
 
 .piece {
     user-select: none;
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.3s;
 }
 
 .piece:hover {
     transform: scale(1.1);
+}
+
+.piece.moving {
+    animation: moveAnimation 0.5s ease-out forwards;
 }
 
 .sidebar {
@@ -134,7 +139,7 @@ body {
 .controls button {
     padding: 12px 20px;
     margin: 5px;
-    background-color: #007bff;
+    background-color: #28a745;
     color: white;
     border: none;
     border-radius: 8px;
@@ -144,7 +149,7 @@ body {
 }
 
 .controls button:hover {
-    background-color: #0056b3;
+    background-color: #218838;
     transform: scale(1.05);
 }
 
@@ -191,10 +196,12 @@ body {
 }
 
 @keyframes moveAnimation {
-    from { transform: translate(0, 0); }
-    to { transform: translate(calc(50px * (toCol - fromCol)), calc(50px * (toRow - fromRow))); }
+    from { transform: translate(0, 0); opacity: 1; }
+    to { transform: translate(calc(50px * (toCol - fromCol)), calc(50px * (toRow - fromRow))); opacity: 1; }
 }
 
-.piece.moving {
-    animation: moveAnimation 0.5s ease-out forwards;
+@keyframes highlightBlink {
+    0% { background-color: #90ee90; }
+    50% { background-color: #aaffaa; }
+    100% { background-color: #90ee90; }
 }
